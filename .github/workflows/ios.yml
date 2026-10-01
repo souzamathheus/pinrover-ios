@@ -58,7 +58,7 @@ jobs:
           npm run build
           # The Base44 build drops viewport-fit=cover; without it iOS reports a 0 safe-area inset
           # and the header renders under the notch / Dynamic Island.
-          sed -E -i '' 's#<meta name="viewport"[^>]*>#<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />#' dist/index.html
+          sed -E -i '' 's#<meta name="viewport"[^>]*>#<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />#' dist/index.html
           grep -o '<meta name="viewport"[^>]*>' dist/index.html
 
       - name: Generate iOS project
