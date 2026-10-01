@@ -68,6 +68,9 @@ jobs:
           set_key ITSAppUsesNonExemptEncryption bool false
           set_key CFBundleDisplayName string "PinRover"
           cp assets/icon-only.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          # iPhone only: the UI is phone-first and iPad would require separate iPad screenshots.
+          sed -E -i '' 's/TARGETED_DEVICE_FAMILY = "?1,2"?;/TARGETED_DEVICE_FAMILY = 1;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -c 'TARGETED_DEVICE_FAMILY = 1;' ios/App/App.xcodeproj/project.pbxproj
 
       - name: Compile check (no signing)
         if: ${{ inputs.mode == 'check' }}
