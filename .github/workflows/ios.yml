@@ -42,6 +42,8 @@ jobs:
         working-directory: app
         env:
           VITE_BASE44_APP_ID: ${{ env.BASE44_APP_ID }}
+          # Same as Base44's own build: resolves legacy imports like "@/functions/listPeople".
+          BASE44_LEGACY_SDK_IMPORTS: "true"
           # Served from capacitor://localhost, so the API and share links need absolute URLs.
           VITE_BASE44_SERVER_URL: ${{ env.PUBLISHED_URL }}
           VITE_BASE44_APP_BASE_URL: ${{ env.PUBLISHED_URL }}
