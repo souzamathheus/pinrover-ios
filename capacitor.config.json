@@ -1,0 +1,9 @@
+{
+  "appId": "com.pinrover.app",
+  "appName": "PinRover",
+  "webDir": "app/dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#ffffff"
+  }
+}

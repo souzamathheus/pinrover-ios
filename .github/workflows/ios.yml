@@ -1,0 +1,85 @@
+name: iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Sign and upload to TestFlight (needs the App Store Connect secrets)"
+        type: boolean
+        default: false
+      version:
+        description: "Marketing version (CFBundleShortVersionString)"
+        default: "1.0.0"
+      source_ref:
+        description: "Branch/commit of the Base44 app repo to build"
+        default: "main"
+
+env:
+  SOURCE_REPO: brandonlaraque13/pinrover-social-discovery-for-real-world-places
+  PUBLISHED_URL: https://pin-rover.base44.app
+  BASE44_APP_ID: 6aa6fab7f91309d2b6081a4f
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout Base44 app source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SOURCE_REPO_TOKEN }}
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build web app
+        working-directory: app
+        env:
+          VITE_BASE44_APP_ID: ${{ env.BASE44_APP_ID }}
+          # Served from capacitor://localhost, so the API and share links need absolute URLs.
+          VITE_BASE44_SERVER_URL: ${{ env.PUBLISHED_URL }}
+          VITE_BASE44_APP_BASE_URL: ${{ env.PUBLISHED_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate iOS project
+        run: |
+          npm ci
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Native configuration (permissions, icon)
+        run: |
+          PLIST=ios/App/App/Info.plist
+          set_key() { /usr/libexec/PlistBuddy -c "Delete :$1" "$PLIST" 2>/dev/null || true; /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "$PLIST"; }
+          set_key NSLocationWhenInUseUsageDescription string "PinRover uses your location to center the map, show nearby places and fill in the address of your pins."
+          set_key NSCameraUsageDescription string "PinRover uses the camera so you can add photos to your pins and profile."
+          set_key NSPhotoLibraryUsageDescription string "PinRover accesses your photos so you can add them to your pins and profile."
+          set_key ITSAppUsesNonExemptEncryption bool false
+          set_key CFBundleDisplayName string "PinRover"
+          cp assets/icon-only.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+
+      - name: Compile check (no signing)
+        if: ${{ !inputs.upload }}
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 40
+
+      - name: Build, sign and upload to TestFlight
+        if: ${{ inputs.upload }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_VERSION: ${{ inputs.version }}
+        run: fastlane ios beta

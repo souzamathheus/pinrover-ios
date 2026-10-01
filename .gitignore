@@ -1,0 +1,7 @@
+node_modules/
+app/
+ios/
+build/
+*.p8
+fastlane/report.xml
+fastlane/README.md

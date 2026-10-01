@@ -1,0 +1,11 @@
+{
+  "name": "pinrover-ios",
+  "private": true,
+  "description": "iOS (Capacitor) build of the PinRover Base44 app. Web source is checked out from the Base44-synced repo at build time.",
+  "dependencies": {
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
+    "@capgo/native-purchases": "^8.8.1"
+  }
+}
