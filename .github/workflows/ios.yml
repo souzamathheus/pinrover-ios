@@ -15,6 +15,11 @@ on:
         description: "Branch/commit of the Base44 app repo to build"
         default: "main"
 
+# One build at a time: parallel runs would compute the same build number.
+concurrency:
+  group: ios-build
+  cancel-in-progress: false
+
 env:
   SOURCE_REPO: brandonlaraque13/pinrover-social-discovery-for-real-world-places
   PUBLISHED_URL: https://pin-rover.base44.app
