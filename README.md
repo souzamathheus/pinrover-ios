@@ -9,8 +9,8 @@ generates the Xcode project and (optionally) uploads to TestFlight.
 
 GitHub → **Actions** → **iOS build** → **Run workflow**.
 
-- `upload` off: compile check for the simulator (no Apple credentials needed).
-- `upload` on: signs with the App Store Connect API key and uploads to TestFlight.
+- `mode=check`: compile check for the simulator (no Apple credentials needed).
+- `mode=sign`: signed .ipa without uploading. `mode=testflight`: sign and upload to TestFlight.
 
 ## Secrets (Settings → Secrets and variables → Actions)
 

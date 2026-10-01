@@ -38,7 +38,7 @@ platform :ios do
     increment_build_number(xcodeproj: PROJECT, build_number: latest + 1)
     increment_version_number(xcodeproj: PROJECT, version_number: ENV.fetch("APP_VERSION", "1.0.0"))
 
-    # Automatic signing with the App Store Connect API key (cloud-managed certificates).
+    team = ENV.fetch("APPLE_TEAM_ID")
     auth = [
       "-allowProvisioningUpdates",
       "-authenticationKeyPath #{key_path}",
@@ -46,18 +46,39 @@ platform :ios do
       "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}"
     ].join(" ")
 
-    build_app(
-      project: PROJECT,
-      scheme: "App",
-      configuration: "Release",
-      export_method: "app-store",
-      clean: true,
-      output_directory: "build",
-      xcargs: "DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')} CODE_SIGN_STYLE=Automatic #{auth}",
-      export_xcargs: auth
-    )
+    # Archive unsigned: a signed archive needs a development profile, which Apple only issues
+    # when the team has a registered device. Signing happens at export with a cloud-managed
+    # App Store distribution certificate, which needs no device.
+    root = File.expand_path("..", __dir__)
+    archive = "#{root}/build/App.xcarchive"
+    export_dir = "#{root}/build/export"
+    sh("set -o pipefail && cd #{root} && xcodebuild -project #{PROJECT} -scheme App -configuration Release " \
+       "-destination 'generic/platform=iOS' -archivePath #{archive} DEVELOPMENT_TEAM=#{team} " \
+       "CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=NO clean archive | xcbeautify")
 
-    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+    options = "#{root}/build/ExportOptions.plist"
+    File.write(options, <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0"><dict>
+        <key>method</key><string>app-store-connect</string>
+        <key>teamID</key><string>#{team}</string>
+        <key>signingStyle</key><string>automatic</string>
+        <key>uploadSymbols</key><true/>
+      </dict></plist>
+    PLIST
+    sh("set -o pipefail && xcodebuild -exportArchive -archivePath #{archive} -exportPath #{export_dir} " \
+       "-exportOptionsPlist #{options} #{auth} | xcbeautify")
+
+    ipa = Dir["#{export_dir}/*.ipa"].first || UI.user_error!("Export produced no .ipa")
+    # Log which certificate signed the app (expect "Apple Distribution").
+    sh("cd #{root}/build && rm -rf ipa && unzip -oq '#{ipa}' -d ipa && codesign -dvv ipa/Payload/*.app 2>&1 | grep -E 'Authority|TeamIdentifier' | head -3")
+
+    if ENV["UPLOAD"] == "true"
+      upload_to_testflight(api_key: api_key, ipa: ipa, skip_waiting_for_build_processing: true)
+    else
+      UI.success("Signed .ipa ready (upload skipped): #{ipa}")
+    end
   ensure
     File.delete(key_path) if key_path && File.exist?(key_path)
   end
